@@ -1,18 +1,19 @@
 package br.com.eduardomaxwell.beberagua;
 
-import androidx.annotation.RequiresApi;
-import androidx.appcompat.app.AppCompatActivity;
-
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
-import android.text.Editable;
-import android.text.TextWatcher;
-import android.util.Log;
-import android.view.View;
+import android.os.SystemClock;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.snackbar.Snackbar;
+
+import java.util.Calendar;
 
 import br.com.eduardomaxwell.beberagua.databinding.ActivityMainBinding;
 
@@ -62,13 +63,13 @@ public class MainActivity extends AppCompatActivity {
         if (!activated) {
             binding.btnNotify.setText(R.string.btn_pause);
             binding.btnNotify.setBackgroundColor(getResources().getColor(android.R.color.black));
-            activated = true;
             this.saveSharedPreferences();
+            activated = true;
         } else {
             binding.btnNotify.setText(R.string.notify);
             binding.btnNotify.setBackgroundColor(getResources().getColor(R.color.colorPrimary));
-            activated = false;
             this.deleteSharedPreferences();
+            activated = false;
         }
 
         Snackbar.make(binding.getRoot(), "Hora: " + hour + " Minute: " + minute + " Interval: " + interval,
@@ -107,6 +108,21 @@ public class MainActivity extends AppCompatActivity {
         editor.putInt("hour", hour);
         editor.putInt("minute", minute);
         editor.apply();
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, hour);
+        calendar.set(Calendar.MINUTE, minute);
+
+        Intent notificationIntent = new Intent(MainActivity.this, NotificationPublisher.class);
+        notificationIntent.putExtra(NotificationPublisher.KEY_NOTIFICATION_ID, 1);
+        notificationIntent.putExtra(NotificationPublisher.KEY_NOTIFICATION, "Hora de beber água.");
+
+        PendingIntent broadcast = PendingIntent.getBroadcast(MainActivity.this, 0, notificationIntent, PendingIntent.FLAG_CANCEL_CURRENT);
+        long futureInMillis = SystemClock.elapsedRealtime() + (interval * 60 * 1000L);
+
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(),
+                interval * 60 * 1000L, broadcast);
     }
 
     private void deleteSharedPreferences() {
@@ -116,5 +132,11 @@ public class MainActivity extends AppCompatActivity {
         editor.remove("hour");
         editor.remove("minute");
         editor.apply();
+
+        Intent notificationIntent = new Intent(MainActivity.this, NotificationPublisher.class);
+        PendingIntent broadcast = PendingIntent.getBroadcast(MainActivity.this, 0, notificationIntent, 0);
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        alarmManager.cancel(broadcast);
+
     }
 }
